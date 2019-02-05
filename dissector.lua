@@ -27,38 +27,44 @@ tcp_flags = Field.new("tcp.flags")
 function mu_proto.dissector(buffer,pinfo,tree)
 	pinfo.cols.protocol = "mu"
 	local subtree  = tree:add(mu_proto,buffer(),"Mu Protocol")
-	local data_len = buffer:len()
-	subtree:add("len:" .. data_len)
-	local hex_msg_len = ''
-	for s_i = 1,data_len do
-		hex_msg_len = hex_msg_len .. string.format("%02x",buffer(s_i-1,1):uint())
+	subtree:add("len:" .. buffer:len())
+	local hex_msg = ''
+	for s_i = 1,buffer:len() do
+		hex_msg = hex_msg .. string.format("%02x",buffer(s_i-1,1):uint())
 	end
-	subtree:add("raw:" .. hex_msg_len)
+	subtree:add("raw:" .. hex_msg)
 	local offset = 0
 	local command_count = 0
 	local tcp_dst = tostring(tcp_dst_f())
 	local tcp_src = tostring(tcp_src_f())
-	while data_len > offset do
+	local bf = {}
+	while buffer:len() > offset do
 		local msg_type = buffer(offset,1)
 		local msg_len  = get_mu_protocol_mesg_len(offset,buffer)
 		if msg_len > buffer:len() - offset then
 			pinfo.desegment_len = DESEGMENT_ONE_MORE_SEGMENT
-			return data_len - msg_len
+			return buffer:len() - msg_len
 		else
 			command_count = command_count + 1
 			local new_tree = subtree:add('Command ' .. command_count)
 			new_tree:add(buffer(offset,1),"Command: " .. buffer(offset,1))
 			new_tree:add('',"len: " .. msg_len)
 			---------------
-			local hex_msg_len = ''
+			local hex_msg = ''
 			for s_i = 1	, msg_len do
-				hex_msg_len = hex_msg_len .. string.format("%02x",buffer(offset+s_i-1,1):uint())
+				hex_msg = hex_msg .. string.format("%02x",buffer(offset+s_i-1,1):uint())
 			end
 			if msg_len > 0 then
-				print(tcp_dst .. ',' .. hex_msg_len)
+				--特定のメッセージは最初に出力したい,
+				--該当以外のメッセージはバッファする
+				if hex_msg:sub(1,4) == 'c118' then
+					print(tcp_dst .. ',' .. hex_msg)
+				else
+					table.insert(bf,#bf+1,tcp_dst .. ',' .. hex_msg)
+				end
 			end
 			---------------
-			new_tree:add('',"law: " .. hex_msg_len)
+			new_tree:add('',"law: " .. hex_msg)
 			--C1 msg
 			if buffer(offset,1):uint() == 0xC1 then
 			end
@@ -69,6 +75,9 @@ function mu_proto.dissector(buffer,pinfo,tree)
 		if msg_len == 0 then break end
 		offset = offset + msg_len
 	end
+		for key,hex_msg in pairs(bf) do
+			print(hex_msg)
+		end
 end
 ------------------------------------------------------------------
 ------------------------------------------------------------------
