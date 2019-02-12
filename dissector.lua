@@ -54,30 +54,12 @@ function mu_proto.dissector(buffer,pinfo,tree)
 			for s_i = 1	, msg_len do
 				hex_msg = hex_msg .. string.format("%02x",buffer(offset+s_i-1,1):uint())
 			end
-			if msg_len > 0 then
-				--特定のメッセージは最初に出力したい,
-				--該当以外のメッセージはバッファする
-				if hex_msg:sub(1,4) == 'c118' then
-					print(tcp_dst .. ',' .. hex_msg)
-				else
-					table.insert(bf,#bf+1,tcp_dst .. ',' .. hex_msg)
-				end
-			end
-			---------------
+			print(tcp_dst .. ',' .. hex_msg)
 			new_tree:add('',"law: " .. hex_msg)
-			--C1 msg
-			if buffer(offset,1):uint() == 0xC1 then
-			end
-			--C2 msg
-			if buffer(offset,1):uint() == 0xC2 then
-			end
 		end
 		if msg_len == 0 then break end
 		offset = offset + msg_len
 	end
-		for key,hex_msg in pairs(bf) do
-			print(hex_msg)
-		end
 end
 ------------------------------------------------------------------
 ------------------------------------------------------------------
